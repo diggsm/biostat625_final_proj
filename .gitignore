@@ -5,3 +5,13 @@
 
 # Rproj files
 *.Rproj
+
+# Data files
+*.csv
+*.xlsx
+
+# Report outputs
+*.html
+*.pdf
+*.doc
+*.docx
