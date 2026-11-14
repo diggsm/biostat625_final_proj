@@ -15,3 +15,6 @@
 *.pdf
 *.doc
 *.docx
+
+# auth.yaml files
+auth.yaml
