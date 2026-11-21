@@ -9,6 +9,7 @@
 # Data files
 *.csv
 *.xlsx
+*.rds
 
 # Report outputs
 *.html
