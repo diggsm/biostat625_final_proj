@@ -105,15 +105,13 @@ sp_diag(map_data$`Crude Rate`, map_data, w = C, name = "Crude Rate")
 cars <- prep_car_data(C)
 
 # Fit model
-tic()
 fit <- stan_car(Deaths ~ offset(log(Population)),
                 censor_point = 9,
                 data = map_data,
                 car_parts = cars,
                 family = poisson(),
-                iter = 1e3, # number of MCMC samples
+                iter = 2000, # number of MCMC samples
                 quiet = TRUE) # to silence printing
-toc()
 
 # Quick model diagnostics
 sp_diag(fit, map_data)
