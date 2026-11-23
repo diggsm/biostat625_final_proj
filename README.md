@@ -1,0 +1,33 @@
+
+
+<!-- README.md is generated from README.qmd. Please edit that file -->
+
+# Final Project
+
+<!-- badges: start -->
+
+<!-- badges: end -->
+
+This project uses YAML files to manage unique file paths and census API
+keys across users. To orient R to your unique file path and census API
+key, follow the steps below:
+
+1.  Create a file called `auth.yaml` in your local repository’s home
+    directory.
+
+2.  Open the file and paste the following text:
+
+``` yaml
+# Path to my data
+data_path: "C:/Users/your_user_name/your_folder/cdc_wonder_data_folder"
+
+# My census api key
+api: "MY_API_KEY"
+```
+
+Update the data path with your specific file path where the data are
+stored. Update the census API key with your specific key. You can
+request a census API key from the [U.S. Census
+Bureau](https://api.census.gov/data/key_signup.html).
+
+3.  Save the `auth.yaml` file after editing.
