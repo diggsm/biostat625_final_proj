@@ -118,6 +118,41 @@ map_data_20_24 <- left_join(
   join_by(GEOID == `County Code`)
 )
 
+# Get variables table from the 2024 5-year American Community Survey (ACS)
+# vars_acs5 <- load_variables(2024, "acs5")
+
+# Get ACS estimates for income, etc...
+#### Left off here ####
+midwest_acs_20_24 <- get_acs(
+  geography = "county",
+  variables = c(
+    # Median income
+    med_income = "B19013_001",
+    # Male age distribution
+    male_age = "B01001_002",
+    # Female age distribution
+    female_age = "B01001_026"
+  ),
+  state = state_names,
+  year = 2024,
+  survey = "acs5"
+)
+
+midwest_acs_15_19 <- get_acs(
+  geography = "county",
+  variables = c(
+    # Median income
+    med_income = "B19013_001",
+    # Male age distribution
+    male_age = "B01001_002",
+    # Female age distribution
+    female_age = "B01001_026"
+  ),
+  state = state_names,
+  year = 2019,
+  survey = "acs5"
+)
+
 
 #### Generate Maps ####
 
@@ -143,11 +178,72 @@ crude_fig(map_data_18_24, mid_states24, "2018-2024")
 crude_fig(map_data_15_19, mid_states19, "2015-2019")
 crude_fig(map_data_20_24, mid_states24, "2020-2024")
 
+# Change in crude overdose rates pre- vs. post-pandemic
+full_join(
+  map_data_20_24,
+  st_drop_geometry(map_data_15_19[, c("GEOID", "Crude Rate")]),
+  join_by(GEOID)
+) |> 
+  mutate(change = `Crude Rate.x` - `Crude Rate.y`) |> 
+  ggplot() + 
+  geom_sf(aes(fill = change), color = "white", linewidth = 0.2) +
+  scale_fill_gradient2(
+    low = "#0815A6", mid = "gray90", high = "#A61D08",
+    midpoint = 0,
+    na.value = "gray",
+    name = "Change in\nPredicted\nCrude Rate"
+  ) +
+  geom_sf(
+    data = mid_states24,
+    fill = NA, color = "white", linewidth = 0.5,
+    inherit.aes = F
+  ) +
+  theme_void() +
+  labs(title = paste(
+    "Change in Overdose-Related Death Rate by County\n between 2015-2019 vs. 2020-2024"
+  ))
+
+# Helper function to plot ACS variables by county
+acs_fig <- function(map_data, acs_data, states, var, var_label, years_label) {
+  
+  max_income <- acs_data |> 
+    filter(variable == var) |> 
+    pull(estimate) |> 
+    max(na.rm = T)
+  
+  left_join(
+    map_data, 
+    acs_data[, c("GEOID", "variable", "estimate")], 
+    join_by(GEOID)
+  ) |> 
+    filter(variable == var) |> 
+    ggplot() + 
+    geom_sf(aes(fill = estimate), color = "white", linewidth = 0.2) +
+    geom_sf(
+      data = states,
+      fill = NA, color = "white", linewidth = 0.5,
+      inherit.aes = F
+    ) +
+    scale_fill_viridis_c(limits = c(0, max_income), name = var_label) +
+    theme_void() +
+    labs(title = paste(
+      "ACS 5-year Estimate of", var_label, "by County,", years_label
+    ))
+}
+
+acs_fig(
+  map_data_15_19, midwest_acs_15_19, mid_states19, 
+  "med_income", "Median Income", "2015-2019"
+)
+
+acs_fig(
+  map_data_20_24, midwest_acs_20_24, mid_states24, 
+  "med_income", "Median Income", "2020-2024"
+)
 
 #### Use geostan to fill in missing counties ####
 
 # Adjacency matrix
-# C <- shape2mat(map_data_15_19, style = "B")
 C_19 <- shape2mat(mid_counties19, style = "B")
 C_24 <- shape2mat(mid_counties24, style = "B")
 
@@ -225,6 +321,30 @@ pred_fig(pred_map_data_18_24, mid_states24, "2018-2024")
 pred_fig(pred_map_data_15_19, mid_states19, "2015-2019")
 pred_fig(pred_map_data_20_24, mid_states24, "2020-2024")
 
+# Change in predicted overdose rates pre- vs. post-pandemic
+full_join(
+  pred_map_data_20_24,
+  st_drop_geometry(pred_map_data_15_19[, c("GEOID", "mean")]),
+  join_by(GEOID)
+) |> 
+  mutate(change = (`mean.x` - `mean.y`)*100000) |> 
+  ggplot() + 
+  geom_sf(aes(fill = change), color = "white", linewidth = 0.2) +
+  scale_fill_gradient2(
+    low = "#0815A6", mid = "gray90", high = "#A61D08",
+    midpoint = 0,
+    na.value = "gray",
+    name = "Change in\nPredicted\nCrude Rate"
+  ) +
+  geom_sf(
+    data = mid_states24,
+    fill = NA, color = "white", linewidth = 0.5,
+    inherit.aes = F
+  ) +
+  theme_void() +
+  labs(title = paste(
+    "Change in Predicted Overdose-Related Death Rates by County\n between 2015-2019 vs. 2020-2024"
+  ))
 
 #### Clustering ####
 
@@ -237,7 +357,7 @@ weights19 <- nb2listw(neighbors19, style = "W")
 weights24 <- nb2listw(neighbors24, style = "W")
 
 # Calculate global Moran's I
-# Global Moran's I gives a clustering value for the state overall
+# Global Moran's I gives a clustering value for the midwest region overall
 g_moran_i_18_24 <- moran.test(pred_map_data_18_24$mean, weights24)
 g_moran_i_18_24
 g_moran_i_15_19 <- moran.test(pred_map_data_15_19$mean, weights19)
@@ -307,12 +427,18 @@ lisa_fig <- function(lisa_data, states, years_label) {
     labs(title = paste("LISA Analysis of Overdose Deaths between", years_label))
 }
 
+# Generate results
+results_18_24 <- prep_lisa(pred_map_data_18_24, weights24, l_moran_i_18_24) 
+results_15_19 <- prep_lisa(pred_map_data_15_19, weights24, l_moran_i_15_19)
+results_20_24 <- prep_lisa(pred_map_data_20_24, weights24, l_moran_i_20_24) 
+
 # LISA analysis figures
-prep_lisa(pred_map_data_18_24, weights24, l_moran_i_18_24) |> 
-  lisa_fig(mid_states24, "2018-2024")
+lisa_fig(results_18_24, mid_states24, "2018-2024")
+lisa_fig(results_15_19, mid_states19, "2015-2019")
+lisa_fig(results_20_24, mid_states24, "2020-2024")
 
-prep_lisa(pred_map_data_15_19, weights24, l_moran_i_15_19) |> 
-  lisa_fig(mid_states19, "2015-2019")
+# Optional - Save Results
+# saveRDS(results_18_24, here(data_path, "results_18_24.rds"))
+# saveRDS(results_15_19, here(data_path, "results_15_19.rds"))
+# saveRDS(results_20_24, here(data_path, "results_20_24.rds"))
 
-prep_lisa(pred_map_data_20_24, weights24, l_moran_i_20_24) |> 
-  lisa_fig(mid_states24, "2020-2024")
